@@ -86,7 +86,7 @@
   const view = $('#view');
   const skeleton = () => '<div class="card"><div class="skeleton" style="width:40%"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></div>';
   const alertBox = (kind, msg) => '<div class="alert ' + kind + '">' + esc(msg) + '</div>';
-  const empty = (icon, text) => '<div class="empty"><div class="big">' + icon + '</div><p>' + esc(text) + '</p></div>';
+  const empty = (icon, text) => '<div class="empty"><div class="big" aria-hidden="true"></div><p>' + esc(text) + '</p></div>';
 
   // Um único ouvinte de cliques na área principal; cada tela registra seus handlers com bind().
   let currentHandlers = {};

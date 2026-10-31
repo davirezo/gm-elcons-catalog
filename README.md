@@ -2,7 +2,7 @@
 
 Sistema corporativo de cadastro técnico e preparação de anúncios para comércio eletrônico.
 
-> **Status:** versão inicial (0.1.0). O código foi escrito por assistente de IA a partir de requisitos do projeto e **ainda precisa ser compilado, testado e revisado pelo autor** (ver [Estado atual e pendências](#estado-atual-e-pendências)). Nenhum resultado de teste ou ganho de produtividade está registrado aqui: esses dados devem ser medidos e documentados depois.
+> **Status:** versão inicial (0.1.0). O código foi escrito por assistente de IA a partir de requisitos do projeto. Segundo o autor, a suíte `mvn test` passou e as telas principais foram conferidas manualmente (ver [Estado atual e pendências](#estado-atual-e-pendências)). Nenhum ganho de produtividade está registrado aqui: esses dados devem ser medidos e documentados depois.
 
 ## 1. Descrição e objetivo
 
@@ -206,8 +206,17 @@ Ideias de evolução: integração com IA para gerar o anúncio, importação em
 
 ## 9. Estado atual e pendências
 
-- O código foi gerado sem acesso a compilador/Maven neste ambiente de desenvolvimento: **é necessário rodar `mvn test` e corrigir eventuais erros de compilação ou de teste**.
-- A interface **ainda não foi aberta em navegador**: validar visualmente e funcionalmente (a sintaxe do JavaScript foi verificada, o comportamento não).
-- Não foram executados testes de segurança (varredura de vulnerabilidades, teste de invasão).
-- Resultados de testes, medições de tempo e ganhos de produtividade devem ser registrados depois pelo autor, com dados reais.
-- Docker/Compose não foi executado.
+Verificado pelo autor (informado por ele; os números detalhados ainda não foram anexados a este documento):
+
+- a aplicação compila e inicia com PostgreSQL local (o banco `gmelcons` precisa ser criado antes);
+- `mvn test` executou e todos os testes passaram;
+- as telas principais foram conferidas manualmente no navegador.
+
+Pendências:
+
+- Registrar aqui a saída real de `mvn test` (quantidade de testes) e capturas de tela, para a apresentação acadêmica.
+- Docker/Compose não foi executado até o momento.
+- Não foram executados testes de segurança além dos testes automatizados (varredura de vulnerabilidades, teste de invasão).
+- Os testes automatizados não cobrem a interface (não há testes de navegador).
+- Medições de tempo de cadastro e ganhos de produtividade devem ser feitas e registradas depois pelo autor, com dados reais.
+- Itens da seção 8 (política de senha, limite de tentativas de login, migrações Flyway, HTTPS) seguem como melhorias futuras.
