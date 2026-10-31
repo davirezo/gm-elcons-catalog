@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: gm-elcons-catalog
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/gmelcons}
+    username: ${DB_USER:gmelcons}
+    password: ${DB_PASSWORD:gmelcons}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  seed:
+    # Em produção use APP_SEED_DEMO=false e defina APP_ADMIN_PASSWORD.
+    demo-data: ${APP_SEED_DEMO:true}
+    admin-username: ${APP_ADMIN_USERNAME:admin}
+    admin-password: ${APP_ADMIN_PASSWORD:}
+    operator-password: ${APP_DEMO_OPERATOR_PASSWORD:}

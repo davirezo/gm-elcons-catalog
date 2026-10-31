@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-gmelcons}
+      POSTGRES_USER: ${DB_USER:-gmelcons}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no arquivo .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gmelcons} -d ${DB_NAME:-gmelcons}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # A porta do banco NÃO é publicada: só a aplicação a acessa.
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-gmelcons}
+      DB_USER: ${DB_USER:-gmelcons}
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_SEED_DEMO: ${APP_SEED_DEMO:-true}
+      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
