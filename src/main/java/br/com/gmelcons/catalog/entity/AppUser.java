@@ -35,6 +35,14 @@ public class AppUser {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    /** Falhas de login seguidas; zera ao entrar com sucesso ou ao bloquear a conta. */
+    @Column(name = "failed_login_attempts", nullable = false, columnDefinition = "integer default 0")
+    private int failedLoginAttempts = 0;
+
+    /** Enquanto estiver no futuro, o login da conta é recusado. */
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

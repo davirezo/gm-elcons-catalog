@@ -124,6 +124,8 @@ mvn spring-boot:run
 | `APP_DEMO_OPERATOR_PASSWORD` | vazio | senha do operador de demonstração (se vazia, usa a senha de demonstração abaixo) |
 | `SESSION_COOKIE_SECURE` | `false` | use `true` quando houver HTTPS |
 | `JPA_DDL_AUTO` | `update` | estratégia de esquema do Hibernate |
+| `LOGIN_MAX_FAILED_ATTEMPTS` | `5` | falhas seguidas de login até bloquear a conta |
+| `LOGIN_LOCK_MINUTES` | `15` | duração do bloqueio da conta, em minutos |
 
 Credenciais nunca devem ser versionadas: o `.env` está no `.gitignore`; use o `.env.example` como modelo.
 
@@ -152,7 +154,7 @@ Com a aplicação rodando e **logado na interface**, abra `http://localhost:8080
 mvn test
 ```
 
-Os testes de integração usam H2 em memória (perfil `test`), sem PostgreSQL. Cobrem: autenticação (login, falha, CSRF, usuário inativo, BCrypt), autorização por papel, cadastro e edição de produtos, atributos obrigatórios, duplicação com revisão, mudanças de status, briefing/anúncio, dashboard e registros de auditoria. `ProductValidationServiceTest` é um teste unitário com Mockito.
+Os testes de integração usam H2 em memória (perfil `test`), sem PostgreSQL. Cobrem: autenticação (login, falha, CSRF, usuário inativo, BCrypt, bloqueio por tentativas), autorização por papel, cadastro e edição de produtos, atributos obrigatórios, duplicação com revisão, mudanças de status, briefing/anúncio, dashboard e registros de auditoria. `ProductValidationServiceTest` é um teste unitário com Mockito.
 
 ## 7. Segurança e LGPD
 
@@ -160,6 +162,7 @@ Medidas implementadas:
 
 - senhas com **BCrypt**; a senha nunca é devolvida pela API nem gravada na auditoria;
 - autenticação por sessão, cookie `HttpOnly` e `SameSite=Lax` (`Secure` configurável), expiração por inatividade de 30 min;
+- **bloqueio temporário da conta** após 5 falhas seguidas de login (15 minutos, configurável); o bloqueio é auditado e a mensagem de erro não revela se o usuário existe;
 - **CSRF** habilitado;
 - **RBAC** no backend (URL + `@PreAuthorize`); menor privilégio: OPERADOR não gerencia usuários, categorias, auditoria nem exclui produtos;
 - validação de entrada (Bean Validation) e validação por tipo de atributo; consultas via JPA (sem concatenação de SQL);
@@ -195,7 +198,7 @@ Riscos identificados (qualitativo; não foi feita análise formal):
 |---|---|---|
 | Dado técnico incorreto vindo de concorrente | aviso ao revisor + exigência de fonte + revisão explícita | exigir fonte oficial para atributos obrigatórios |
 | Senhas fracas ou compartilhadas | mínimo de 8 caracteres | política de complexidade, troca de senha pelo próprio usuário, bloqueio após tentativas |
-| Força bruta no login | falhas são auditadas, sem bloqueio | limite de tentativas / atraso progressivo |
+| Força bruta no login | falhas são auditadas e, após 5 falhas seguidas, a conta é bloqueada por 15 minutos | atraso progressivo, bloqueio por origem (IP), segundo fator |
 | Adulteração da auditoria | acesso restrito; sem proteção contra acesso direto ao banco | log externo imutável, assinatura ou encadeamento |
 | Perda de dados | depende de backup manual | rotina automatizada de backup e teste de restauração |
 | Tráfego sem criptografia | HTTP por padrão | publicar atrás de proxy HTTPS e ativar `SESSION_COOKIE_SECURE=true` |

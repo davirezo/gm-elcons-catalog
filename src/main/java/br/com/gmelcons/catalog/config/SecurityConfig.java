@@ -2,12 +2,14 @@ package br.com.gmelcons.catalog.config;
 
 import br.com.gmelcons.catalog.domain.AuditOperation;
 import br.com.gmelcons.catalog.service.AuditService;
+import br.com.gmelcons.catalog.service.LoginAttemptService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -41,7 +43,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, AuditService audit, ObjectMapper mapper) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, AuditService audit, ObjectMapper mapper,
+                                           LoginAttemptService attempts) throws Exception {
         // Chamadas /api/** sem sessão recebem 401; páginas são redirecionadas ao login.
         LinkedHashMap<RequestMatcher, AuthenticationEntryPoint> entryPoints = new LinkedHashMap<>();
         entryPoints.put(new AntPathRequestMatcher("/api/**"), new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED));
@@ -67,6 +70,7 @@ public class SecurityConfig {
                         .loginPage("/login.html")
                         .loginProcessingUrl("/api/auth/login")
                         .successHandler((request, response, authentication) -> {
+                            attempts.recordSuccess(authentication.getName());
                             audit.logAs(authentication.getName(), AuditOperation.LOGIN, "AppUser", null, null, null);
                             response.setStatus(HttpStatus.OK.value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -74,12 +78,16 @@ public class SecurityConfig {
                             mapper.writeValue(response.getWriter(), Map.of("username", authentication.getName()));
                         })
                         .failureHandler((request, response, exception) -> {
+                            // Só senha errada conta; conta já bloqueada ou inativa não aumenta o contador.
+                            if (exception instanceof BadCredentialsException) {
+                                attempts.recordFailure(request.getParameter("username"));
+                            }
                             audit.logAs(request.getParameter("username"), AuditOperation.LOGIN_FAILED, "AppUser",
                                     null, null, null);
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             response.setCharacterEncoding("UTF-8");
-                            mapper.writeValue(response.getWriter(), Map.of("message", "Usuário ou senha inválidos"));
+                            mapper.writeValue(response.getWriter(), Map.of("message", "Usuário ou senha inválidos, ou conta temporariamente bloqueada"));
                         }))
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")

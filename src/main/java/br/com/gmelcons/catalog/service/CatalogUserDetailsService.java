@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Locale;
 
 @Service
@@ -28,6 +29,7 @@ public class CatalogUserDetailsService implements UserDetailsService {
                 .password(user.getPasswordHash())
                 .roles(user.getRole().name())
                 .disabled(!user.isEnabled())
+                .accountLocked(user.getLockedUntil() != null && user.getLockedUntil().isAfter(Instant.now()))
                 .build();
     }
 }
