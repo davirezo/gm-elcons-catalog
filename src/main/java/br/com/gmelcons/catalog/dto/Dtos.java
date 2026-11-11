@@ -112,8 +112,8 @@ public final class Dtos {
 
     public record ProductDetail(Long id, String name, String sku, String brand, Long categoryId, String categoryName,
                                 String description, ProductStatus status, String createdBy, Instant createdAt,
-                                Instant updatedAt, Long duplicatedFromId, String duplicatedFromSku,
-                                String reviewedBy, Instant reviewedAt, List<AttributeView> attributes,
+                                Instant updatedAt, String lastModifiedBy, Long duplicatedFromId,
+                                String duplicatedFromSku, String reviewedBy, Instant reviewedAt, List<AttributeView> attributes,
                                 List<SourceDto> sources, ValidationResult validation, boolean hasListing) {
     }
 
@@ -147,7 +147,7 @@ public final class Dtos {
 
     // ---------- Auditoria e dashboard ----------
     public record AuditDto(Long id, Instant occurredAt, String username, AuditOperation operation, String entityType,
-                           Long entityId, String oldValue, String newValue) {
+                           Long entityId, String oldValue, String newValue, String ipAddress) {
     }
 
     public record ActivityDto(Instant occurredAt, String username, AuditOperation operation, String entityType,

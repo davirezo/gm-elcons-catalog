@@ -35,6 +35,10 @@ public class AuditLog {
     @Column(updatable = false)
     private Long entityId;
 
+    /** IP de origem (preenchido nos eventos de login). Atrás de proxy, é o IP do proxy. */
+    @Column(name = "ip_address", updatable = false, length = 45)
+    private String ipAddress;
+
     @Column(updatable = false, columnDefinition = "TEXT")
     private String oldValue;
 

@@ -29,14 +29,14 @@ public class LoginAttemptService {
     private long lockMinutes;
 
     @Transactional
-    public void recordFailure(String rawUsername) {
+    public void recordFailure(String rawUsername, String ipAddress) {
         users.findByUsername(normalize(rawUsername)).ifPresent(user -> {
             int attempts = user.getFailedLoginAttempts() + 1;
             if (attempts >= maxAttempts) {
                 Instant until = Instant.now().plus(Duration.ofMinutes(lockMinutes));
                 user.setLockedUntil(until);
                 user.setFailedLoginAttempts(0);
-                audit.logAs(user.getUsername(), AuditOperation.ACCOUNT_LOCKED, "AppUser", user.getId(), null,
+                audit.logAsFrom(user.getUsername(), ipAddress, AuditOperation.ACCOUNT_LOCKED, "AppUser", user.getId(), null,
                         AuditService.fields("lockedUntil", until.toString(), "minutes", lockMinutes));
             } else {
                 user.setFailedLoginAttempts(attempts);

@@ -71,7 +71,8 @@ public class SecurityConfig {
                         .loginProcessingUrl("/api/auth/login")
                         .successHandler((request, response, authentication) -> {
                             attempts.recordSuccess(authentication.getName());
-                            audit.logAs(authentication.getName(), AuditOperation.LOGIN, "AppUser", null, null, null);
+                            audit.logAsFrom(authentication.getName(), request.getRemoteAddr(), AuditOperation.LOGIN, "AppUser",
+                                    null, null, null);
                             response.setStatus(HttpStatus.OK.value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             response.setCharacterEncoding("UTF-8");
@@ -80,9 +81,10 @@ public class SecurityConfig {
                         .failureHandler((request, response, exception) -> {
                             // Só senha errada conta; conta já bloqueada ou inativa não aumenta o contador.
                             if (exception instanceof BadCredentialsException) {
-                                attempts.recordFailure(request.getParameter("username"));
+                                attempts.recordFailure(request.getParameter("username"), request.getRemoteAddr());
                             }
-                            audit.logAs(request.getParameter("username"), AuditOperation.LOGIN_FAILED, "AppUser",
+                            audit.logAsFrom(request.getParameter("username"), request.getRemoteAddr(),
+                                    AuditOperation.LOGIN_FAILED, "AppUser",
                                     null, null, null);
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);

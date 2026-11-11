@@ -4,7 +4,8 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/gmelcons}
     username: ${DB_USER:gmelcons}
-    password: ${DB_PASSWORD:gmelcons}
+    # Sem valor padrão de propósito: a aplicação não sobe sem DB_PASSWORD definida.
+    password: ${DB_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:

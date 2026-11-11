@@ -51,7 +51,15 @@ public class AuditService {
     @Transactional
     public void logAs(String username, AuditOperation operation, String entityType, Long entityId,
                       Object oldValue, Object newValue) {
+        logAsFrom(username, null, operation, entityType, entityId, oldValue, newValue);
+    }
+
+    /** Igual a {@link #logAs}, registrando também o IP de origem da requisição (eventos de login). */
+    @Transactional
+    public void logAsFrom(String username, String ipAddress, AuditOperation operation, String entityType,
+                          Long entityId, Object oldValue, Object newValue) {
         AuditLog entry = new AuditLog();
+        entry.setIpAddress(ipAddress == null ? null : truncate(ipAddress, 45));
         entry.setUsername(username == null ? "desconhecido" : truncate(username, 100));
         entry.setOperation(operation);
         entry.setEntityType(entityType);
@@ -85,7 +93,7 @@ public class AuditService {
 
     private AuditDto toDto(AuditLog a) {
         return new AuditDto(a.getId(), a.getOccurredAt(), a.getUsername(), a.getOperation(), a.getEntityType(),
-                a.getEntityId(), a.getOldValue(), a.getNewValue());
+                a.getEntityId(), a.getOldValue(), a.getNewValue(), a.getIpAddress());
     }
 
     private String toJson(Object value) {

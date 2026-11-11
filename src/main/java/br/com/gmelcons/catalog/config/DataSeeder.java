@@ -35,9 +35,20 @@ import java.util.Locale;
 @ConditionalOnProperty(name = "app.seed.enabled", havingValue = "true", matchIfMissing = true)
 public class DataSeeder implements ApplicationRunner {
 
-    // Credenciais de DEMONSTRAÇÃO (documentadas no README). Nunca use em produção.
-    static final String DEMO_ADMIN_PASSWORD = "Admin@Demo2026";
-    static final String DEMO_OPERATOR_PASSWORD = "Operador@Demo2026";
+    // Sem senhas fixas no código: quando não configuradas por variável de ambiente, são geradas e logadas uma vez.
+    private static final String PASSWORD_ALPHABET =
+            "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#%+=";
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+
+    /** Gera uma senha aleatória (16 caracteres) para os usuários de demonstração sem senha configurada. */
+    static String randomPassword() {
+        StringBuilder sb = new StringBuilder(16);
+        for (int i = 0; i < 16; i++) {
+            sb.append(PASSWORD_ALPHABET.charAt(RANDOM.nextInt(PASSWORD_ALPHABET.length())));
+        }
+        return sb.toString();
+    }
+
     private static final String EXAMPLE = "[EXEMPLO] preencher com dado verificado";
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
@@ -81,14 +92,20 @@ public class DataSeeder implements ApplicationRunner {
                 throw new IllegalStateException(
                         "Defina APP_ADMIN_PASSWORD para criar o primeiro administrador (APP_SEED_DEMO=false).");
             }
-            adminPassword = DEMO_ADMIN_PASSWORD;
+            adminPassword = randomPassword();
+            log.warn("APP_ADMIN_PASSWORD não definida: senha GERADA para o usuário administrador: {} "
+                    + "(exibida só agora; defina APP_ADMIN_PASSWORD para escolher a sua)", adminPassword);
         }
         String adminName = (props.adminUsername() == null || props.adminUsername().isBlank())
                 ? "admin" : props.adminUsername().trim().toLowerCase(Locale.ROOT);
         createUser(adminName, "Administrador", adminPassword, Role.ADMIN);
         if (props.demoData()) {
-            String opPassword = (props.operatorPassword() == null || props.operatorPassword().isBlank())
-                    ? DEMO_OPERATOR_PASSWORD : props.operatorPassword();
+            String opPassword = props.operatorPassword();
+            if (opPassword == null || opPassword.isBlank()) {
+                opPassword = randomPassword();
+                log.warn("APP_DEMO_OPERATOR_PASSWORD não definida: senha GERADA para o usuário 'operador': {} "
+                        + "(exibida só agora)", opPassword);
+            }
             createUser("operador", "Operador de demonstração", opPassword, Role.OPERADOR);
         }
     }

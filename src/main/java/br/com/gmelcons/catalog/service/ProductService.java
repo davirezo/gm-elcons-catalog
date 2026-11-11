@@ -326,7 +326,8 @@ public class ProductService {
                 .map(SourceService::toDto).toList();
         return new ProductDetail(p.getId(), p.getName(), p.getSku(), p.getBrand(), p.getCategory().getId(),
                 p.getCategory().getName(), p.getDescription(), p.getStatus(), p.getCreatedBy().getUsername(),
-                p.getCreatedAt(), p.getUpdatedAt(), p.getDuplicatedFromId(), p.getDuplicatedFromSku(),
+                p.getCreatedAt(), p.getUpdatedAt(), p.getLastModifiedBy(), p.getDuplicatedFromId(),
+                p.getDuplicatedFromSku(),
                 p.getReviewedBy() == null ? null : p.getReviewedBy().getUsername(), p.getReviewedAt(),
                 attributes, sourceDtos, validation.validate(p), listings.existsByProductId(p.getId()));
     }

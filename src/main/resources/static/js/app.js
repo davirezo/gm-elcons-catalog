@@ -22,7 +22,7 @@
     OUTRA: ['neutral', 'Outra referência']
   };
   const OPS = {
-    LOGIN: 'Login', LOGIN_FAILED: 'Falha de login', LOGOUT: 'Logout',
+    LOGIN: 'Login', LOGIN_FAILED: 'Falha de login', ACCOUNT_LOCKED: 'Conta bloqueada', LOGOUT: 'Logout',
     PRODUCT_CREATE: 'Produto cadastrado', PRODUCT_UPDATE: 'Produto alterado', PRODUCT_DELETE: 'Produto excluído',
     PRODUCT_DUPLICATE: 'Produto duplicado', ATTRIBUTE_UPDATE: 'Atributos alterados', STATUS_CHANGE: 'Status alterado',
     SOURCE_CREATE: 'Fonte cadastrada', SOURCE_UPDATE: 'Fonte alterada', SOURCE_DELETE: 'Fonte excluída',
@@ -297,7 +297,7 @@
       pageHead(d.name, 'SKU ' + d.sku, acts.join('')) +
       '<div class="card"><dl class="kv"><dt>Status</dt><dd>' + badge(STATUS, d.status) + '</dd><dt>Categoria</dt><dd>' + esc(d.categoryName) + '</dd>' +
       '<dt>Marca</dt><dd>' + esc(d.brand || '-') + '</dd><dt>Responsável</dt><dd>' + esc(d.createdBy) + '</dd>' +
-      '<dt>Criado em</dt><dd>' + fmtDateTime(d.createdAt) + '</dd><dt>Atualizado em</dt><dd>' + fmtDateTime(d.updatedAt) + '</dd>' +
+      '<dt>Criado em</dt><dd>' + fmtDateTime(d.createdAt) + '</dd><dt>Atualizado em</dt><dd>' + fmtDateTime(d.updatedAt) + (d.lastModifiedBy ? ' por ' + esc(d.lastModifiedBy) : '') + '</dd>' +
       (d.reviewedBy ? '<dt>Revisado por</dt><dd>' + esc(d.reviewedBy) + ' em ' + fmtDateTime(d.reviewedAt) + '</dd>' : '') +
       '<dt>Descrição</dt><dd>' + esc(d.description || '-') + '</dd></dl></div>' + valHtml +
       '<div class="card"><h2>Atributos técnicos</h2>' + attrCard + '</div>' +
@@ -525,8 +525,8 @@
       try {
         const p = await api('GET', '/api/audit' + qs({ username: aud.username, operation: aud.operation, entityType: aud.entityType, page: aud.page, size: 20 }));
         if (!p.content.length) { box.innerHTML = empty('🔍', 'Nenhum registro encontrado.'); return; }
-        box.innerHTML = '<div class="table-wrap"><table class="tbl"><thead><tr><th>Data/hora</th><th>Usuário</th><th>Operação</th><th>Entidade</th><th>Detalhes</th></tr></thead><tbody>' +
-          p.content.map((a) => '<tr><td class="small">' + fmtDateTime(a.occurredAt) + '</td><td>' + esc(a.username) + '</td><td>' + esc(OPS[a.operation] || a.operation) + '</td><td>' +
+        box.innerHTML = '<div class="table-wrap"><table class="tbl"><thead><tr><th>Data/hora</th><th>Usuário</th><th>IP</th><th>Operação</th><th>Entidade</th><th>Detalhes</th></tr></thead><tbody>' +
+          p.content.map((a) => '<tr><td class="small">' + fmtDateTime(a.occurredAt) + '</td><td>' + esc(a.username) + '</td><td class="small mono">' + esc(a.ipAddress || '-') + '</td><td>' + esc(OPS[a.operation] || a.operation) + '</td><td>' +
             esc(a.entityType) + (a.entityId != null ? ' #' + a.entityId : '') + '</td><td>' +
             ((a.oldValue || a.newValue) ? '<details class="json"><summary>ver valores</summary>' +
               (a.oldValue ? '<strong class="small">Antes</strong><pre>' + esc(pretty(a.oldValue)) + '</pre>' : '') +

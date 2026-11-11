@@ -79,11 +79,11 @@ Decisões principais:
 | `app_users` | login, nome, hash BCrypt, papel, ativo |
 | `categories` | nome, descrição |
 | `attribute_definitions` | atributos de cada categoria: nome, tipo, obrigatório, unidade, ordem |
-| `products` | nome, SKU (único), marca, categoria, status, responsável, datas, produto de origem (duplicação), revisor |
+| `products` | nome, SKU (único), marca, categoria, status, responsável, datas, produto de origem (duplicação), revisor, último usuário que alterou (JPA Auditing) |
 | `product_attribute_values` | valor de cada atributo por produto, fonte e marca "precisa de revisão" |
 | `information_sources` | fontes do produto: tipo, nome, URL, data da consulta, observações |
 | `ad_listings` | anúncio preparado (1 por produto): título, descrição, palavras-chave, datas, revisor |
-| `audit_logs` | data/hora, usuário, operação, entidade, id, valor anterior e novo (JSON) |
+| `audit_logs` | data/hora, usuário, IP de origem (eventos de login), operação, entidade, id, valor anterior e novo (JSON) |
 
 Relações principais: `categories 1—N attribute_definitions`, `categories 1—N products`, `products 1—N product_attribute_values`, `products 1—N information_sources`, `products 1—1 ad_listings`, `app_users 1—N products` (responsável).
 
@@ -106,22 +106,24 @@ Acesse `http://localhost:8080`. O banco PostgreSQL **não é publicado** na máq
 Pré-requisitos: JDK 21, Maven 3.9+ e um PostgreSQL acessível. Para subir só o banco com Docker:
 
 ```powershell
-docker run --name gmelcons-db -e POSTGRES_DB=gmelcons -e POSTGRES_USER=gmelcons -e POSTGRES_PASSWORD=gmelcons -p 5432:5432 -d postgres:16-alpine
+docker run --name gmelcons-db -e POSTGRES_DB=gmelcons -e POSTGRES_USER=gmelcons -e POSTGRES_PASSWORD=<sua-senha-local> -p 5432:5432 -d postgres:16-alpine
+$env:DB_PASSWORD = "<sua-senha-local>"
 mvn spring-boot:run
 ```
 
-(Essa senha simples é só para desenvolvimento local.)
+A aplicação **não tem senha de banco padrão**: sem `DB_PASSWORD` ela não inicia. (Na IDE, defina `DB_PASSWORD` nas variáveis de ambiente da configuração de execução. Os testes usam H2 em memória e não precisam dela.)
 
 ### 6.3 Variáveis de ambiente
 
 | Variável | Padrão | Uso |
 |---|---|---|
 | `DB_URL` | `jdbc:postgresql://localhost:5432/gmelcons` | conexão com o banco |
-| `DB_USER` / `DB_PASSWORD` | `gmelcons` / `gmelcons` | credenciais do banco (**troque em qualquer ambiente real**) |
+| `DB_USER` | `gmelcons` | usuário do banco |
+| `DB_PASSWORD` | **sem padrão (obrigatória)** | senha do banco; a aplicação não inicia sem ela |
 | `APP_SEED_DEMO` | `true` | `true` carrega dados fictícios e usuários de demonstração |
 | `APP_ADMIN_USERNAME` | `admin` | login do primeiro administrador |
-| `APP_ADMIN_PASSWORD` | vazio | senha do primeiro administrador. **Obrigatória** quando `APP_SEED_DEMO=false` |
-| `APP_DEMO_OPERATOR_PASSWORD` | vazio | senha do operador de demonstração (se vazia, usa a senha de demonstração abaixo) |
+| `APP_ADMIN_PASSWORD` | vazio | senha do primeiro administrador. **Obrigatória** quando `APP_SEED_DEMO=false`; com demo e vazia, é gerada e exibida uma vez no log |
+| `APP_DEMO_OPERATOR_PASSWORD` | vazio | senha do operador de demonstração (se vazia, é gerada aleatoriamente e exibida uma vez no log) |
 | `SESSION_COOKIE_SECURE` | `false` | use `true` quando houver HTTPS |
 | `JPA_DDL_AUTO` | `update` | estratégia de esquema do Hibernate |
 | `LOGIN_MAX_FAILED_ATTEMPTS` | `5` | falhas seguidas de login até bloquear a conta |
@@ -131,12 +133,12 @@ Credenciais nunca devem ser versionadas: o `.env` está no `.gitignore`; use o `
 
 ### 6.4 Usuários de demonstração
 
-Criados **apenas** quando `APP_SEED_DEMO=true` e o banco está vazio. São credenciais públicas, de demonstração, e **não devem existir em ambiente real**.
+Criados **apenas** quando `APP_SEED_DEMO=true` e o banco está vazio. Não há senhas fixas no código: se `APP_ADMIN_PASSWORD` / `APP_DEMO_OPERATOR_PASSWORD` não forem definidas, a aplicação **gera uma senha aleatória** e a exibe **uma única vez** no log de inicialização (procure por `senha GERADA`). Esses usuários **não devem existir em ambiente real**.
 
 | Usuário | Senha | Papel |
 |---|---|---|
-| `admin` | `Admin@Demo2026` | ADMIN |
-| `operador` | `Operador@Demo2026` | OPERADOR |
+| `admin` | `APP_ADMIN_PASSWORD` ou gerada no log | ADMIN |
+| `operador` | `APP_DEMO_OPERATOR_PASSWORD` ou gerada no log | OPERADOR |
 
 Para uso real: defina `APP_SEED_DEMO=false` e `APP_ADMIN_PASSWORD` com uma senha forte (ou troque as senhas pela tela de Usuários).
 
