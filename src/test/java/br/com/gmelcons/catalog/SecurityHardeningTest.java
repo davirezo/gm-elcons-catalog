@@ -52,6 +52,13 @@ class SecurityHardeningTest extends IntegrationTestBase {
         assertNoLeak(r.getResponse().getContentAsString());
     }
 
+    @Test
+    @DisplayName("a CSP não permite estilos inline")
+    void cspHasNoUnsafeInline() throws Exception {
+        String csp = mvc.perform(get("/login.html")).andReturn().getResponse().getHeader("Content-Security-Policy");
+        assertThat(csp).isNotBlank().doesNotContain("unsafe-inline").contains("default-src 'self'");
+    }
+
     private static void assertNoLeak(String body) {
         assertThat(body).doesNotContain("Exception", "at br.com", "org.springframework", "java.lang", "\tat ");
     }

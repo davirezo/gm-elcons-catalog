@@ -42,6 +42,16 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Token CSRF em cookie legível pelo JavaScript (HttpOnly=false, necessário para o front enviar o
+     * cabeçalho X-XSRF-TOKEN) e com SameSite=Lax, como o cookie de sessão.
+     */
+    static CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieCustomizer(cookie -> cookie.sameSite("Lax"));
+        return repository;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, AuditService audit, ObjectMapper mapper,
                                            LoginAttemptService attempts) throws Exception {
@@ -53,7 +63,7 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokenRepository())
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
@@ -101,7 +111,7 @@ public class SecurityConfig {
                         }))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(
-                                "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+                                "default-src 'self'; img-src 'self' data:; style-src 'self'; "
                                         + "script-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"))
                         .frameOptions(frame -> frame.deny())
                         .referrerPolicy(ref -> ref.policy(ReferrerPolicy.SAME_ORIGIN)));

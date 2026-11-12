@@ -1,2 +1,2 @@
-* text=auto eol=lf
-*.bat text eol=crlf
+# Scripts de shell sempre com LF (senão quebram no Linux/Docker)
+*.sh text eol=lf

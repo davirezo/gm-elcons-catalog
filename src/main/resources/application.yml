@@ -6,6 +6,10 @@ spring:
     username: ${DB_USER:gmelcons}
     # Sem valor padrão de propósito: a aplicação não sobe sem DB_PASSWORD definida.
     password: ${DB_PASSWORD}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   jpa:
     open-in-view: false
     hibernate:

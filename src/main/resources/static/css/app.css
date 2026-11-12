@@ -121,3 +121,21 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
   .content{padding:18px 14px 50px}
   .grid2,.form-grid{grid-template-columns:1fr}
 }
+
+/* Utilitários que substituem estilos inline (permitem CSP sem 'unsafe-inline') */
+.accent{color:var(--accent)}
+.w-40{width:40%}
+.w-70{width:70%}
+.mt-12{margin-top:12px}
+#listing-error{margin-top:10px}
+#login-btn{justify-content:center}
+.login-note{margin:16px 0 0}
+
+/* Imagens do produto */
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:12px}
+.gal-item{margin:0;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:6px}
+.gal-item figcaption{word-break:break-word}
+.gal-actions{display:flex;gap:6px;flex-wrap:wrap}
+.thumb{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:var(--bg)}
+.thumb.sm{width:56px;height:56px}

@@ -68,7 +68,8 @@ Decisões principais:
 - **Duplicação:** copia dados, atributos e fontes, mas o novo produto nasce `INCOMPLETO`, registra o produto de origem e **todos os atributos copiados ficam marcados "copiado: revisar"** até alguém confirmá-los.
 - **Status:** `INCOMPLETO` → `AGUARDANDO_REVISAO` → `PRONTO_PARA_ANUNCIO`. Para avançar é preciso: ao menos uma fonte, atributos obrigatórios preenchidos e com fonte, nenhum atributo pendente de revisão e, no final, **confirmação explícita** do revisor. Editar um produto pronto o devolve para revisão; esvaziar um atributo obrigatório o devolve a incompleto.
 - **Gerador de briefing:** disponível só para produtos prontos. Reúne nome, marca, categoria, SKU, atributos revisados (com a fonte de cada um), fontes consultadas, observações e orientações para título, descrição e palavras-chave. O texto é copiado e usado no ChatGPT manualmente.
-- **Anúncios preparados:** guarda título, descrição, palavras-chave, data da preparação e responsável pela revisão.
+- **Anúncios preparados:** guarda título, descrição, palavras-chave, data da preparação e responsável pela revisão. A lista mostra a miniatura da imagem principal do produto.
+- **Imagens do produto:** até 6 por produto (JPG, PNG ou WebP, até 5 MB cada), enviadas pela página do produto por ADMIN e OPERADOR. A primeira é a principal e dá para trocá-la ou removê-la. As imagens aparecem na tela "Briefing e anúncio" e na lista de anúncios, e ficam gravadas no PostgreSQL (entram no backup).
 - **Dashboard:** totais por status, anúncios recentes e atividades recentes, todos calculados a partir do banco.
 - **Auditoria (somente ADMIN):** login/falha de login/logout, produtos, atributos, status, fontes, anúncios, categorias, usuários e papéis, com usuário, data/hora, operação, entidade e valores anteriores/novos.
 
@@ -83,9 +84,10 @@ Decisões principais:
 | `product_attribute_values` | valor de cada atributo por produto, fonte e marca "precisa de revisão" |
 | `information_sources` | fontes do produto: tipo, nome, URL, data da consulta, observações |
 | `ad_listings` | anúncio preparado (1 por produto): título, descrição, palavras-chave, datas, revisor |
+| `product_images` | imagens do produto: arquivo (bytea), tipo detectado, nome de exibição, tamanho, ordem (a primeira é a principal), quem enviou |
 | `audit_logs` | data/hora, usuário, IP de origem (eventos de login), operação, entidade, id, valor anterior e novo (JSON) |
 
-Relações principais: `categories 1—N attribute_definitions`, `categories 1—N products`, `products 1—N product_attribute_values`, `products 1—N information_sources`, `products 1—1 ad_listings`, `app_users 1—N products` (responsável).
+Relações principais: `categories 1—N attribute_definitions`, `categories 1—N products`, `products 1—N product_attribute_values`, `products 1—N information_sources`, `products 1—N product_images`, `products 1—1 ad_listings`, `app_users 1—N products` (responsável).
 
 ## 6. Como executar
 
@@ -95,9 +97,17 @@ Pré-requisito: Docker Desktop.
 
 ```powershell
 copy .env.example .env      # Windows (no Linux/macOS: cp .env.example .env)
-# edite o .env e troque DB_PASSWORD
+# edite o .env: troque DB_PASSWORD (obrigatória) e, se quiser, defina APP_ADMIN_PASSWORD
 docker compose up --build
 ```
+
+Se `APP_ADMIN_PASSWORD` ficar vazia (modo demonstração), a senha do `admin` é gerada e aparece **uma vez** no log:
+
+```powershell
+docker compose logs app | findstr "senha GERADA"      # Linux/macOS: ... | grep "senha GERADA"
+```
+
+Comandos úteis: `docker compose down` (para; os dados continuam no volume), `docker compose down -v` (para **e apaga** o banco), `docker compose logs -f app` (acompanha a aplicação). O `docker compose config` mostra o arquivo já com as variáveis resolvidas (e acusa se `DB_PASSWORD` estiver faltando).
 
 Acesse `http://localhost:8080`. O banco PostgreSQL **não é publicado** na máquina; só a aplicação o acessa. Dados ficam no volume `pgdata`.
 
@@ -171,6 +181,7 @@ Medidas implementadas:
 - interface escapa todo dado exibido (proteção contra XSS) e o servidor envia cabeçalhos de segurança (CSP restritiva, `X-Frame-Options`, `Referrer-Policy`);
 - mensagens de erro genéricas ao cliente, sem stack trace;
 - credenciais fora do código, por variáveis de ambiente; banco sem porta publicada no Compose; contêiner da aplicação roda sem root;
+- **upload de imagens seguro:** o formato é conferido pelo **conteúdo** do arquivo (não pelo nome nem pelo Content-Type enviados), só JPG/PNG/WebP (SVG é recusado), máximo de 5 MB e 6 por produto, limite de dimensões, nome do arquivo só para exibição (nunca vira caminho em disco), imagem servida só a usuários logados com `X-Content-Type-Options: nosniff`;
 - **auditoria** de operações críticas, consultável apenas por ADMIN.
 
 LGPD (Lei 13.709/2018) como referência:
@@ -184,12 +195,26 @@ LGPD (Lei 13.709/2018) como referência:
 
 Os registros são protegidos por controle de acesso no sistema, mas **não são invioláveis nem à prova de adulteração**: quem tiver acesso direto ao banco (por exemplo, o administrador do PostgreSQL) pode alterá-los ou apagá-los, e a aplicação não usa assinatura nem encadeamento de registros. Ações fora da aplicação não são registradas. Para maior garantia seria preciso enviar os registros a um repositório externo com acesso restrito.
 
-### Backup e recuperação (orientações)
+### Backup e recuperação
 
-- Faça **backup periódico do PostgreSQL** (ex.: `pg_dump`) e guarde cópias fora da máquina do servidor, com acesso restrito (os dumps contêm hashes de senha e a auditoria).
-- Exemplo (Docker Compose): `docker compose exec db pg_dump -U gmelcons gmelcons > backup.sql`.
-- **Teste a restauração** em ambiente separado; um backup nunca testado não é garantia.
-- Defina e documente a frequência e o tempo de retenção (decisão da empresa).
+Scripts na pasta `scripts/` (Docker Compose, com o serviço `db` rodando). Usam `pg_dump` no formato custom (`-Fc`) e `pg_restore`.
+
+| Ação | Windows (PowerShell) | Linux/macOS |
+|---|---|---|
+| Backup | `.\scripts\backup.ps1` | `./scripts/backup.sh` |
+| Restauração | `.\scripts\restore.ps1 -File backups\gmelcons-AAAAMMDD-HHMMSS.dump` | `./scripts/restore.sh backups/gmelcons-AAAAMMDD-HHMMSS.dump` |
+
+- O **backup** cria `backups/gmelcons-AAAAMMDD-HHMMSS.dump` e confere se o arquivo é um dump válido antes de copiá-lo. A pasta `backups/` está no `.gitignore`.
+- A **restauração substitui** os dados atuais. O script pede que você digite `RESTAURAR`, para a aplicação, restaura com `pg_restore --clean --if-exists` e liga a aplicação de novo.
+- Se o PowerShell bloquear a execução de scripts: `powershell -ExecutionPolicy Bypass -File .\scripts\backup.ps1`.
+- Sem Docker (PostgreSQL instalado na máquina): `pg_dump -U gmelcons -d gmelcons -Fc -f backup.dump` e `pg_restore -U gmelcons -d gmelcons --clean --if-exists --no-owner backup.dump`.
+
+Orientações:
+
+- Os dumps contêm **hashes de senha e a trilha de auditoria**: guarde cópias fora da máquina do servidor, com acesso restrito.
+- **Teste a restauração** em ambiente separado (por exemplo, um Compose com outro `DB_NAME`); um backup nunca testado não é garantia.
+- O backup protege contra **perda** de dados, não contra alteração maliciosa por quem tem acesso ao banco ou ao arquivo (veja "Limitações da auditoria").
+- Defina e documente a frequência e o tempo de retenção (decisão da empresa). Os scripts não agendam nem apagam backups antigos.
 - Proteja o arquivo `.env` e troque as senhas se houver suspeita de vazamento.
 
 ## 8. Diagnóstico de riscos e melhorias propostas
@@ -221,7 +246,7 @@ Pendências:
 
 - Registrar aqui a saída real de `mvn test` (quantidade de testes) e capturas de tela, para a apresentação acadêmica.
 - Docker/Compose não foi executado até o momento.
-- Não foram executados testes de segurança além dos testes automatizados (varredura de vulnerabilidades, teste de invasão).
+- Varredura com OWASP ZAP (Spider com sessão autenticada) executada pelo autor: nenhum alerta de risco alto (2 médios, 4 baixos e 6 informativos antes das correções). O relatório do ZAP deve ser anexado à documentação. Não houve varredura ativa nem teste de invasão manual, e o envio de imagens foi criado depois dessa varredura (não coberto por ela).
 - Os testes automatizados não cobrem a interface (não há testes de navegador).
 - Medições de tempo de cadastro e ganhos de produtividade devem ser feitas e registradas depois pelo autor, com dados reais.
-- Itens da seção 8 (política de senha, limite de tentativas de login, migrações Flyway, HTTPS) seguem como melhorias futuras.
+- Itens da seção 8 (política de senha, migrações Flyway, HTTPS) seguem como melhorias futuras; o limite de tentativas de login já foi implementado.

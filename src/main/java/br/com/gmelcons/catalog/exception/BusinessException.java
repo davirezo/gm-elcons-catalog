@@ -20,6 +20,10 @@ public class BusinessException extends RuntimeException {
         return new BusinessException(HttpStatus.CONFLICT, message);
     }
 
+    public static BusinessException payloadTooLarge(String message) {
+        return new BusinessException(HttpStatus.PAYLOAD_TOO_LARGE, message);
+    }
+
     public static BusinessException unprocessable(String message) {
         return new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, message);
     }

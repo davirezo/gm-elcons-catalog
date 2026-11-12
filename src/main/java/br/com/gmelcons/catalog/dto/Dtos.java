@@ -117,6 +117,10 @@ public final class Dtos {
                                 List<SourceDto> sources, ValidationResult validation, boolean hasListing) {
     }
 
+    public record ProductImageDto(Long id, Long productId, String fileName, String contentType, long sizeBytes,
+                                  boolean main, Instant createdAt) {
+    }
+
     public record BriefingDto(Long productId, String text) {
     }
 
@@ -142,7 +146,7 @@ public final class Dtos {
 
     public record ListingDto(Long id, Long productId, String productName, String productSku, String title,
                              String description, String keywords, Instant preparedAt, Instant updatedAt,
-                             String reviewedBy) {
+                             String reviewedBy, Long mainImageId) {
     }
 
     // ---------- Auditoria e dashboard ----------

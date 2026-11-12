@@ -1,0 +1,9 @@
+# Mantém segredos e lixo fora do contexto de build da imagem
+.env
+.git
+.idea
+.vscode
+target
+*.iml
+*.log
+backups

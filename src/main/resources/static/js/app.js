@@ -23,6 +23,7 @@
   };
   const OPS = {
     LOGIN: 'Login', LOGIN_FAILED: 'Falha de login', ACCOUNT_LOCKED: 'Conta bloqueada', LOGOUT: 'Logout',
+    IMAGE_ADD: 'Imagem adicionada', IMAGE_REMOVE: 'Imagem removida', IMAGE_SET_MAIN: 'Imagem principal alterada',
     PRODUCT_CREATE: 'Produto cadastrado', PRODUCT_UPDATE: 'Produto alterado', PRODUCT_DELETE: 'Produto excluído',
     PRODUCT_DUPLICATE: 'Produto duplicado', ATTRIBUTE_UPDATE: 'Atributos alterados', STATUS_CHANGE: 'Status alterado',
     SOURCE_CREATE: 'Fonte cadastrada', SOURCE_UPDATE: 'Fonte alterada', SOURCE_DELETE: 'Fonte excluída',
@@ -48,7 +49,9 @@
   async function api(method, url, body) {
     const opt = { method, credentials: 'same-origin', headers: { Accept: 'application/json' } };
     if (method !== 'GET') opt.headers['X-XSRF-TOKEN'] = csrf();
-    if (body !== undefined) {
+    if (body instanceof FormData) {
+      opt.body = body; // upload: o navegador define o Content-Type (multipart) sozinho
+    } else if (body !== undefined) {
       opt.headers['Content-Type'] = 'application/json';
       opt.body = JSON.stringify(body);
     }
@@ -84,8 +87,14 @@
   }
 
   const view = $('#view');
-  const skeleton = () => '<div class="card"><div class="skeleton" style="width:40%"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></div>';
+  const skeleton = () => '<div class="card"><div class="skeleton w-40"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton w-70"></div></div>';
   const alertBox = (kind, msg) => '<div class="alert ' + kind + '">' + esc(msg) + '</div>';
+  const MAX_IMAGES = 6;
+  const imageItem = (m, editable) => '<figure class="gal-item"><a href="/api/images/' + m.id + '" target="_blank" rel="noopener">' +
+    '<img class="thumb" src="/api/images/' + m.id + '" alt="' + esc(m.fileName) + '" loading="lazy"></a>' +
+    '<figcaption class="small">' + (m.main ? '<span class="badge ok">Principal</span> ' : '') + esc(m.fileName) + '</figcaption>' +
+    (editable ? '<div class="gal-actions">' + (m.main ? '' : '<button class="btn sm" data-action="img-main" data-id="' + m.id + '">Tornar principal</button>') +
+      '<button class="btn sm" data-action="img-del" data-id="' + m.id + '">Remover</button></div>' : '') + '</figure>';
   const empty = (icon, text) => '<div class="empty"><div class="big" aria-hidden="true"></div><p>' + esc(text) + '</p></div>';
 
   // Um único ouvinte de cliques na área principal; cada tela registra seus handlers com bind().
@@ -244,6 +253,7 @@
   async function vProduct(id) {
     view.innerHTML = skeleton();
     const d = await api('GET', '/api/products/' + id);
+    const imgs = await api('GET', '/api/products/' + id + '/images');
     const srcLabel = (s) => (SOURCE[s.type] ? SOURCE[s.type][1] : s.type) + ' - ' + s.name;
 
     const acts = [];
@@ -300,10 +310,25 @@
       '<dt>Criado em</dt><dd>' + fmtDateTime(d.createdAt) + '</dd><dt>Atualizado em</dt><dd>' + fmtDateTime(d.updatedAt) + (d.lastModifiedBy ? ' por ' + esc(d.lastModifiedBy) : '') + '</dd>' +
       (d.reviewedBy ? '<dt>Revisado por</dt><dd>' + esc(d.reviewedBy) + ' em ' + fmtDateTime(d.reviewedAt) + '</dd>' : '') +
       '<dt>Descrição</dt><dd>' + esc(d.description || '-') + '</dd></dl></div>' + valHtml +
+      '<div class="card"><div class="card-head"><h2>Imagens do produto (' + imgs.length + '/' + MAX_IMAGES + ')</h2>' +
+        (imgs.length < MAX_IMAGES ? '<label class="btn" for="img-file">+ Enviar imagem</label><input type="file" id="img-file" class="visually-hidden" accept="image/jpeg,image/png,image/webp">' : '') + '</div>' +
+        '<p class="muted small">JPG, PNG ou WebP, até 5 MB cada. A primeira é a imagem principal e aparece no anúncio.</p>' +
+        (imgs.length ? '<div class="gallery">' + imgs.map((m) => imageItem(m, true)).join('') + '</div>' : empty('🖼️', 'Nenhuma imagem enviada.')) + '</div>' +
       '<div class="card"><h2>Atributos técnicos</h2>' + attrCard + '</div>' +
       '<div class="card"><div class="card-head"><h2>Fontes de informação</h2><button class="btn" data-action="src-add">+ Adicionar fonte</button></div>' + srcRows + '</div>';
 
     const reload = () => vProduct(id);
+    const imgFile = $('#img-file');
+    if (imgFile) {
+      imgFile.addEventListener('change', async () => {
+        const f = imgFile.files[0];
+        if (!f) return;
+        const fd = new FormData();
+        fd.append('file', f);
+        try { await api('POST', '/api/products/' + id + '/images', fd); toast('Imagem enviada.'); reload(); }
+        catch (e) { toast(e.message, 'bad'); imgFile.value = ''; }
+      });
+    }
     const srcForm = (s) => '<div class="form-grid">' +
       fSelect('Tipo da fonte', 'type', Object.keys(SOURCE).map((k) => [k, SOURCE[k][1]]), s ? s.type : 'FABRICANTE', { required: true }) +
       fInput('Data da consulta', 'consultedAt', s && s.consultedAt || '', { type: 'date' }) +
@@ -369,6 +394,13 @@
         openModal({ title: 'Editar fonte', body: srcForm(s),
           onSubmit: async (fd) => { await api('PUT', '/api/sources/' + s.id, srcBody(fd)); toast('Fonte atualizada.'); reload(); } });
       },
+      'img-main': async (el) => {
+        try { await api('PUT', '/api/images/' + el.dataset.id + '/main'); toast('Imagem principal atualizada.'); reload(); }
+        catch (e) { toast(e.message, 'bad'); }
+      },
+      'img-del': (el) => openModal({ title: 'Remover imagem', submit: 'Remover', danger: true,
+        body: '<p>Remover esta imagem do produto?</p>',
+        onSubmit: async () => { await api('DELETE', '/api/images/' + el.dataset.id); toast('Imagem removida.'); reload(); } }),
       'src-del': (el) => {
         const s = d.sources.find((x) => String(x.id) === el.dataset.id);
         openModal({ title: 'Excluir fonte', submit: 'Excluir', danger: true,
@@ -384,11 +416,16 @@
     const d = await api('GET', '/api/products/' + id);
     let brief = null; let problem = null;
     try { brief = await api('GET', '/api/products/' + id + '/briefing'); } catch (e) { problem = e.message; }
+    let imgs = [];
+    try { imgs = await api('GET', '/api/products/' + id + '/images'); } catch (e) { /* segue sem imagens */ }
     let listing = null;
     if (d.hasListing) { try { listing = await api('GET', '/api/products/' + id + '/listing'); } catch (e) { /* sem anúncio */ } }
 
     view.innerHTML = '<p class="small"><a href="#/products/' + id + '">← ' + esc(d.name) + '</a></p>' +
       pageHead('Gerador de briefing', d.name + ' (' + d.sku + ')') +
+      '<div class="card"><div class="card-head"><h2>Imagens do produto</h2><a class="btn" href="#/products/' + id + '">Gerenciar imagens</a></div>' +
+      (imgs.length ? '<div class="gallery">' + imgs.map((m) => imageItem(m, false)).join('') + '</div>'
+        : '<p class="muted small">Este produto ainda não tem imagens. Envie na página do produto.</p>') + '</div>' +
       (problem ? alertBox('warn', problem) :
         '<div class="card"><div class="card-head"><h2>1. Briefing para o ChatGPT</h2><button class="btn primary" data-action="copy">Copiar briefing</button></div>' +
         '<p class="muted small">Copie o texto abaixo, cole no ChatGPT e peça o título, a descrição e as palavras-chave. Confira tudo antes de usar.</p>' +
@@ -398,8 +435,8 @@
         '<form id="listing-form"><div class="form-grid">' + fInput('Título do anúncio', 'title', listing ? listing.title : '', { required: true, maxlength: 255, full: true }) +
         fText('Descrição', 'description', listing ? listing.description : '', { required: true, maxlength: 10000 }) +
         fInput('Palavras-chave (separadas por vírgula)', 'keywords', listing ? listing.keywords || '' : '', { maxlength: 1000, full: true }) + '</div>' +
-        '<div class="form-error" id="listing-error" role="alert" style="margin-top:10px"></div>' +
-        '<button class="btn primary" type="submit" style="margin-top:12px">Salvar anúncio</button></form></div>');
+        '<div class="form-error" id="listing-error" role="alert"></div>' +
+        '<button class="btn primary mt-12" type="submit">Salvar anúncio</button></form></div>');
 
     bind({
       copy: async () => {
@@ -500,8 +537,8 @@
       try {
         const p = await api('GET', '/api/listings' + qs({ page: lstPage, size: 15 }));
         if (!p.content.length) { box.innerHTML = empty('📝', 'Nenhum anúncio preparado. Aprove um produto e use "Briefing e anúncio".'); return; }
-        box.innerHTML = '<div class="table-wrap"><table class="tbl"><thead><tr><th>Título</th><th>Produto</th><th>Palavras-chave</th><th>Preparado</th><th>Revisão</th></tr></thead><tbody>' +
-          p.content.map((l) => '<tr><td><a href="#/products/' + l.productId + '/briefing">' + esc(l.title) + '</a></td><td>' + esc(l.productSku) + '</td><td class="small">' + esc(l.keywords || '-') +
+        box.innerHTML = '<div class="table-wrap"><table class="tbl"><thead><tr><th>Imagem</th><th>Título</th><th>Produto</th><th>Palavras-chave</th><th>Preparado</th><th>Revisão</th></tr></thead><tbody>' +
+          p.content.map((l) => '<tr><td>' + (l.mainImageId ? '<img class="thumb sm" src="/api/images/' + l.mainImageId + '" alt="" loading="lazy">' : '<span class="muted small">-</span>') + '</td><td><a href="#/products/' + l.productId + '/briefing">' + esc(l.title) + '</a></td><td>' + esc(l.productSku) + '</td><td class="small">' + esc(l.keywords || '-') +
             '</td><td class="small">' + fmtDateTime(l.preparedAt) + '</td><td class="small">' + esc(l.reviewedBy) + '<br>' + fmtDateTime(l.updatedAt) + '</td></tr>').join('') + '</tbody></table></div>' + pager(p);
       } catch (e) { box.innerHTML = alertBox('bad', e.message); }
     }

@@ -34,6 +34,7 @@ public class ProductService {
     private final ProductAttributeValueRepository values;
     private final InformationSourceRepository sources;
     private final AdListingRepository listings;
+    private final ProductImageRepository images;
     private final CurrentUser currentUser;
     private final AuditService audit;
     private final ProductValidationService validation;
@@ -124,6 +125,7 @@ public class ProductService {
         }
         Map<String, Object> before = snapshot(product);
         listings.deleteByProductId(id);
+        images.deleteByProductId(id);
         values.deleteByProductId(id);
         sources.deleteByProductId(id);
         products.delete(product);

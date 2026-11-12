@@ -10,14 +10,18 @@ import br.com.gmelcons.catalog.entity.Product;
 import br.com.gmelcons.catalog.exception.BusinessException;
 import br.com.gmelcons.catalog.exception.NotFoundException;
 import br.com.gmelcons.catalog.repository.AdListingRepository;
+import br.com.gmelcons.catalog.repository.ProductImageRepository;
 import br.com.gmelcons.catalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,6 +35,7 @@ import static br.com.gmelcons.catalog.service.Text.blankToNull;
 public class ListingService {
 
     private final AdListingRepository listings;
+    private final ProductImageRepository images;
     private final ProductRepository products;
     private final CurrentUser currentUser;
     private final AuditService audit;
@@ -43,7 +48,16 @@ public class ListingService {
     public PageResponse<ListingDto> list(int page, int size) {
         PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
                 Sort.by(Sort.Direction.DESC, "updatedAt"));
-        return PageResponse.of(listings.findAll(pageable).map(ListingService::toDto));
+        Page<AdListing> result = listings.findAll(pageable);
+        // imagem principal de cada anúncio da página, em uma única consulta
+        Map<Long, Long> mainImage = new HashMap<>();
+        if (result.hasContent()) {
+            List<Long> productIds = result.getContent().stream().map(a -> a.getProduct().getId()).toList();
+            for (ProductImageRepository.IdRow row : images.findOrderedIds(productIds)) {
+                mainImage.putIfAbsent(row.getProductId(), row.getId());
+            }
+        }
+        return PageResponse.of(result.map(a -> toDto(a, mainImage.get(a.getProduct().getId()))));
     }
 
     @Transactional
@@ -78,8 +92,12 @@ public class ListingService {
     }
 
     public static ListingDto toDto(AdListing l) {
+        return toDto(l, null);
+    }
+
+    public static ListingDto toDto(AdListing l, Long mainImageId) {
         return new ListingDto(l.getId(), l.getProduct().getId(), l.getProduct().getName(), l.getProduct().getSku(),
                 l.getTitle(), l.getDescription(), l.getKeywords(), l.getPreparedAt(), l.getUpdatedAt(),
-                l.getReviewedBy().getUsername());
+                l.getReviewedBy().getUsername(), mainImageId);
     }
 }
