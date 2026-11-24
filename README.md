@@ -2,11 +2,11 @@
 
 Sistema corporativo de cadastro técnico e preparação de anúncios para comércio eletrônico.
 
-> **Status:** versão inicial (0.1.0). O código foi escrito por assistente de IA a partir de requisitos do projeto. Segundo o autor, a suíte `mvn test` passou e as telas principais foram conferidas manualmente (ver [Estado atual e pendências](#estado-atual-e-pendências)). Nenhum ganho de produtividade está registrado aqui: esses dados devem ser medidos e documentados depois.
+> **Status:** versão 0.1.0, entregue como Projeto Integrado (módulo Software Corporativo, foco em segurança e auditoria). O código foi escrito com apoio de assistente de IA a partir de requisitos do projeto. Segundo o autor, a suíte `mvn test` passou e as telas principais foram conferidas manualmente; há limitações declaradas (ver [Estado atual e pendências](#estado-atual-e-pendências)). Nenhum ganho de produtividade está registrado aqui: esses dados devem ser medidos e documentados depois.
 
 ## 1. Descrição e objetivo
 
-A GM Elcons comercializa produtos elétricos pelo Mercado Livre. Hoje, cadastrar um produto exige um processo manual: pesquisar dados técnicos, consultar anúncios de concorrentes e catálogos de fabricantes/fornecedores, reunir as características, gerar título/descrição/palavras-chave no ChatGPT e preencher o anúncio à mão. A empresa estima cerca de 30 minutos por produto (estimativa informada pela empresa, **não medida por este sistema**).
+A GM Elcons comercializa produtos elétricos pelo Mercado Livre. Hoje, cadastrar um produto exige um processo manual: pesquisar dados técnicos, consultar anúncios de concorrentes e catálogos de fabricantes/fornecedores, reunir as características, gerar título/descrição/palavras-chave no ChatGPT e preencher o anúncio à mão. A empresa estima cerca de 50 minutos por produto (estimativa informada pela empresa, **não medida por este sistema**).
 
 O **GM Elcons Catalog** centraliza esse trabalho:
 
@@ -27,7 +27,7 @@ O projeto é parte de um Projeto Integrado de Análise e Desenvolvimento de Sist
 |---|---|
 | Linguagem / build | Java 21, Maven |
 | Backend | Spring Boot 3.3, Spring Web, Spring Security, Spring Data JPA, Bean Validation |
-| Banco de dados | PostgreSQL 16 (produção/Docker); H2 em memória apenas nos testes |
+| Banco de dados | PostgreSQL (imagem `postgres:16-alpine` no Docker Compose; o autor desenvolveu com PostgreSQL 18 local); H2 em memória apenas nos testes |
 | Frontend | HTML, CSS e JavaScript puro (sem dependências externas), servido pelo próprio Spring Boot |
 | Documentação da API | springdoc-openapi (Swagger UI) |
 | Testes | JUnit 5, Mockito, Spring Security Test, MockMvc |
@@ -71,7 +71,7 @@ Decisões principais:
 - **Anúncios preparados:** guarda título, descrição, palavras-chave, data da preparação e responsável pela revisão. A lista mostra a miniatura da imagem principal do produto.
 - **Imagens do produto:** até 6 por produto (JPG, PNG ou WebP, até 5 MB cada), enviadas pela página do produto por ADMIN e OPERADOR. A primeira é a principal e dá para trocá-la ou removê-la. As imagens aparecem na tela "Briefing e anúncio" e na lista de anúncios, e ficam gravadas no PostgreSQL (entram no backup).
 - **Dashboard:** totais por status, anúncios recentes e atividades recentes, todos calculados a partir do banco.
-- **Auditoria (somente ADMIN):** login/falha de login/logout, produtos, atributos, status, fontes, anúncios, categorias, usuários e papéis, com usuário, data/hora, operação, entidade e valores anteriores/novos.
+- **Auditoria (somente ADMIN):** login/falha de login/bloqueio de conta/logout, produtos, atributos, status, fontes, anúncios, imagens (adicionar, remover, trocar principal), categorias, usuários e papéis, com usuário, data/hora, operação, entidade, valores anteriores/novos e IP de origem. Além da trilha, o produto guarda quem o alterou por último e quando (JPA Auditing).
 
 ## 5. Estrutura do banco de dados
 
@@ -91,7 +91,9 @@ Relações principais: `categories 1—N attribute_definitions`, `categories 1�
 
 ## 6. Como executar
 
-### 6.1 Com Docker Compose (recomendado)
+### 6.1 Com Docker Compose
+
+> **Atenção:** o `docker-compose.yml` e os scripts de backup/restauração foram escritos e revisados, mas **ainda não foram executados pelo autor**. O caminho verificado é o 6.2 (aplicação local + PostgreSQL).
 
 Pré-requisito: Docker Desktop.
 
@@ -111,9 +113,9 @@ Comandos úteis: `docker compose down` (para; os dados continuam no volume), `do
 
 Acesse `http://localhost:8080`. O banco PostgreSQL **não é publicado** na máquina; só a aplicação o acessa. Dados ficam no volume `pgdata`.
 
-### 6.2 Localmente (sem Docker para a aplicação)
+### 6.2 Localmente (sem Docker para a aplicação) — caminho verificado
 
-Pré-requisitos: JDK 21, Maven 3.9+ e um PostgreSQL acessível. Para subir só o banco com Docker:
+Pré-requisitos: JDK 21, Maven 3.9+ (ou IntelliJ) e um PostgreSQL acessível, com o banco `gmelcons` e o usuário `gmelcons` criados. Se o PostgreSQL já estiver instalado, basta garantir que o serviço esteja rodando. Alternativamente, para subir só o banco com Docker:
 
 ```powershell
 docker run --name gmelcons-db -e POSTGRES_DB=gmelcons -e POSTGRES_USER=gmelcons -e POSTGRES_PASSWORD=<sua-senha-local> -p 5432:5432 -d postgres:16-alpine
@@ -166,7 +168,7 @@ Com a aplicação rodando e **logado na interface**, abra `http://localhost:8080
 mvn test
 ```
 
-Os testes de integração usam H2 em memória (perfil `test`), sem PostgreSQL. Cobrem: autenticação (login, falha, CSRF, usuário inativo, BCrypt, bloqueio por tentativas), autorização por papel, cadastro e edição de produtos, atributos obrigatórios, duplicação com revisão, mudanças de status, briefing/anúncio, dashboard e registros de auditoria. `ProductValidationServiceTest` é um teste unitário com Mockito.
+Os testes de integração usam H2 em memória (perfil `test`), sem PostgreSQL. Cobrem: autenticação (login, falha, CSRF, usuário inativo, BCrypt, bloqueio por tentativas), autorização por papel, cadastro e edição de produtos, atributos obrigatórios, duplicação com revisão, mudanças de status, briefing/anúncio, dashboard e registros de auditoria. Classes adicionadas no endurecimento de segurança: `AuditTrailTest` (JPA Auditing e IP), `SecurityHardeningTest` e `SecurityConfigTest` (cabeçalhos, CSRF, cookies), `DataSeederPasswordTest` (sem senhas fixas) e `ProductImageTest` (upload de imagens). `ProductValidationServiceTest` é um teste unitário com Mockito.
 
 ## 7. Segurança e LGPD
 
@@ -186,7 +188,7 @@ Medidas implementadas:
 
 LGPD (Lei 13.709/2018) como referência:
 
-- **minimização:** o sistema guarda apenas dados do catálogo e dos usuários internos (login, nome, papel). **Não armazena dados de clientes do Mercado Livre** e não há campos para isso;
+- **minimização:** o sistema guarda apenas dados do catálogo e dos usuários internos (login, nome, papel, IP de acesso nos eventos de login). **Não armazena dados de clientes do Mercado Livre** e não há campos para isso;
 - **finalidade e necessidade:** dados pessoais limitados a identificar quem opera e quem fez cada alteração (rastreabilidade);
 - **segurança:** controles acima; **responsabilização:** auditoria por usuário;
 - direitos do titular, base legal, prazo de retenção dos registros de auditoria e eventual encarregado (DPO) são **decisões da empresa** e não foram definidos aqui.
@@ -224,7 +226,7 @@ Riscos identificados (qualitativo; não foi feita análise formal):
 | Risco | Situação atual | Melhoria sugerida |
 |---|---|---|
 | Dado técnico incorreto vindo de concorrente | aviso ao revisor + exigência de fonte + revisão explícita | exigir fonte oficial para atributos obrigatórios |
-| Senhas fracas ou compartilhadas | mínimo de 8 caracteres | política de complexidade, troca de senha pelo próprio usuário, bloqueio após tentativas |
+| Senhas fracas ou compartilhadas | mínimo de 8 caracteres; bloqueio temporário após falhas seguidas | política de complexidade, troca de senha pelo próprio usuário |
 | Força bruta no login | falhas são auditadas e, após 5 falhas seguidas, a conta é bloqueada por 15 minutos | atraso progressivo, bloqueio por origem (IP), segundo fator |
 | Adulteração da auditoria | acesso restrito; sem proteção contra acesso direto ao banco | log externo imutável, assinatura ou encadeamento |
 | Perda de dados | depende de backup manual | rotina automatizada de backup e teste de restauração |
@@ -236,17 +238,20 @@ Ideias de evolução: integração com IA para gerar o anúncio, importação em
 
 ## 9. Estado atual e pendências
 
-Verificado pelo autor (informado por ele; os números detalhados ainda não foram anexados a este documento):
+Implementado nesta entrega: trilha de auditoria com JPA Auditing e IP, endurecimento de segurança (CSRF, CSP, RBAC, bloqueio de conta, sem senhas fixas), Docker Compose, scripts de backup/restauração, varredura OWASP ZAP e imagens de produto. O relatório técnico e o vídeo de apresentação foram concluídos.
 
-- a aplicação compila e inicia com PostgreSQL local (o banco `gmelcons` precisa ser criado antes);
+Verificado pelo autor (informado por ele; os números detalhados não foram anexados a este documento):
+
+- a aplicação compila e inicia com PostgreSQL local (o banco `gmelcons` precisa ser criado antes e `DB_PASSWORD` definida);
 - `mvn test` executou e todos os testes passaram;
 - as telas principais foram conferidas manualmente no navegador.
 
-Pendências:
+Limitações e pendências:
 
-- Registrar aqui a saída real de `mvn test` (quantidade de testes) e capturas de tela, para a apresentação acadêmica.
-- Docker/Compose não foi executado até o momento.
-- Varredura com OWASP ZAP (Spider com sessão autenticada) executada pelo autor: nenhum alerta de risco alto (2 médios, 4 baixos e 6 informativos antes das correções). O relatório do ZAP deve ser anexado à documentação. Não houve varredura ativa nem teste de invasão manual, e o envio de imagens foi criado depois dessa varredura (não coberto por ela).
+- A quantidade exata de testes não está registrada aqui.
+- **Docker Compose e scripts de backup/restauração não foram executados** pelo autor; precisam ser testados antes de qualquer uso real.
+- OWASP ZAP (Spider com sessão autenticada): nenhum alerta de risco alto; 2 médios, 4 baixos e 6 informativos. Foram corrigidos a CSP e o `SameSite`; ficaram aceitos o cookie `XSRF-TOKEN` sem `HttpOnly` (o JavaScript precisa lê-lo) e a ausência de HSTS (execução local em HTTP). Dois alertas (Cross-Domain Misconfiguration e `X-Content-Type-Options`) não foram confirmados. A varredura **não foi repetida** após as correções, não foi ativa e não cobriu o envio de imagens.
+- A auditoria não é à prova de adulteração por quem acessa o banco diretamente (ver "Limitações da auditoria"). O IP registrado vem de `getRemoteAddr()` e não é confiável atrás de proxy reverso sem configuração adicional.
 - Os testes automatizados não cobrem a interface (não há testes de navegador).
 - Medições de tempo de cadastro e ganhos de produtividade devem ser feitas e registradas depois pelo autor, com dados reais.
-- Itens da seção 8 (política de senha, migrações Flyway, HTTPS) seguem como melhorias futuras; o limite de tentativas de login já foi implementado.
+- Itens da seção 8 (política de senha, migrações Flyway, HTTPS) seguem como melhorias futuras.
